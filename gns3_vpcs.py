@@ -18,7 +18,7 @@ CASES = [
     ("SAT-PC1", INTERNET, True, "Satis -> internet (NAT)"),
     ("SAT-PC1", "172.16.20.11", False, "Satis -> Personel (ACL engeller)"),
     ("BIS-PC1", "172.16.10.11", True, "Bilgi Islem -> Satis"),
-    ("BIS-PC1", "172.16.90.11", None, "Bilgi Islem -> ERS-SAT yonetim adresi (varsayilan rota bulgusu)"),
+    ("BIS-PC1", "172.16.90.11", True, "Bilgi Islem -> ERS-SAT yonetim adresi (statik varsayilan rota duzeltmesi)"),
     ("FAB-PC1", "172.16.50.12", True, "Tesis -> SNC-WEB (GRE tuneli)"),
     ("FAB-PC1", INTERNET, True, "Tesis -> internet (tunel + NAT)"),
 ]
