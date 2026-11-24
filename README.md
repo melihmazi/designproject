@@ -49,6 +49,7 @@ extensions/                çekirdeğe dokunmayan modüller
   tests/                   pytest: 31 çevrimdışı + 6 canlı test
   drift/                   şablon ↔ canlı config sapma raporu
   security-hardening/      Port Security, DHCP Snooping, OSPF MD5 (+ geri alma)
+  fast-convergence/        OSPF hello 1 / dead 4, HSRP 1 / 3: düğüm arızasında kesinti ~60 sn -> ~14 sn (+ geri alma)
   config-history/          maskelenmiş yedeklerin yerel git geçmişi
   dashboard/               sağlık + sapma raporu tek HTML sayfada
 backups/  reports/         çıktılar (backups/ git'e girmez)
@@ -63,6 +64,7 @@ docs/checkpoints/          faz notları        docs/captures/  pcap + analiz
 & $py -m pytest extensions\tests --live                            # + canlı ağ testleri
 & $py extensions\drift\drift.py                                    # en son yedeğe göre sapma
 & $py extensions\security-hardening\harden.py --dry-run            # sertleştirme (--rollback ile geri al)
+& $py extensions\fast-convergence\hizli.py --dry-run               # hızlı yakınsama (--rollback ile geri al)
 & $py extensions\config-history\commit_backups.py                  # yedekleri git geçmişine işle
 & $py extensions\dashboard\dashboard.py --serve                    # http://localhost:5000
 & $py extensions\ipv6\ipv6.py --dry-run                            # IPv6 dual-stack (--verify, --rollback)
@@ -114,7 +116,8 @@ Laboratuvarda bunun için `..\lab\ansible_vm.py` RAM'de çalışan küçük bir 
 
 GNS3 2.2.61 bu bilgisayarda kurulu; proje `C:\Users\merts\GNS3\projects\DesignProject`. Adımlar ve sonuçlar
 `docs/checkpoints/tam-topoloji.md` içinde ("Gerçek proje GNS3'te"). Kısaca: sağlık raporu enable parolası olmadan
-`NET_NO_ENABLE=1` ile çalışır; `deploy.py`, `backup.py` ve genişletmeler için `.env`'e gerçek parolalar yazılmalıdır.
+`NET_NO_ENABLE=1` ile çalışır; enable isteyen işler `..\lab\gns3_run.py sw|rtr <betik>` ile koşulur (switch parolaları
+`lab/gns3_env.txt`, router parolaları yol haritasından okunur).
 GNS3 ile QEMU lab aynı konsol portlarını kullanır, ikisi aynı anda çalıştırılmaz.
 
 ## GNS3 olmadan mini laboratuvar (`..\lab`)

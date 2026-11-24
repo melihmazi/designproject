@@ -120,11 +120,59 @@ düğümler yerel GNS3 sunucusunda QEMU 11 ile, donanım hızlandırma olmadan �
 
 - VPCS sonuçları: SAT-PC1 ağ geçidine, sunucuya ve internete erişiyor; Satış → Personel ACL ile engelleniyor;
   FAB-PC1 adresini DHCP relay ile aldı (172.18.10.100), tünelden sunucuya ve internete erişiyor.
-- **Varsayılan rota bulgusu gerçek projede de doğrulandı:** BIS-PC1 → 172.16.90.11 (ERS-SAT yönetim adresi) 0/4.
-- **Switch enable parolası bilinmiyor.** Router'lar yol haritasındaki (Faz 0-D) parolayı kabul ediyor; 10 switch'in
-  kayıtlı parola özeti belgelerdeki hiçbir değerle eşleşmiyor. Bu yüzden `validate.py`'ye `NET_NO_ENABLE=1` eklendi:
-  rapordaki bütün `show` komutları kullanıcı kipinde çalışır. Yedek, sapma ve `deploy.py` ise enable ister;
-  gerçek projeye düzeltme basmak için switch parolası gerekir.
+- **Varsayılan rota bulgusu gerçek projede de doğrulandı:** düzeltmeden önce BIS-PC1 → 172.16.90.11
+  (ERS-SAT yönetim adresi) 0/4.
+
+### Switch parolaları ve düzeltmelerin basılması (24 Kasım, ikinci tur)
+
+10 switch'in enable parolası belgelerde yoktu (kayıtlı özetler hiçbir bilinen değerle eşleşmedi), bu yüzden ilk turda
+yalnız salt okunur kontroller koşabildi. İkinci turda parola şöyle sıfırlandı:
+
+1. Switch'lerin disk katmanları (`hda_disk.qcow2`) `lab/gns3_disk_yedek/` altına taşındı (özgün hâlleri orada duruyor).
+2. GNS3 her switch'i boş diskle açtı. `lab/gns3_reset_switch.py`, daha önce diskten çıkarılmış kayıtlı yapılandırmayı
+   (`lab/gns3_export/saved/*.cfg`) konsoldan satır satır geri yazdı; yalnız `enable secret` ve `admin` parolası
+   `lab/gns3_env.txt` içindeki yeni değerle değiştirildi (dosya git dışında).
+3. Yüklenen yapılandırma özgün kayıtla satır satır karşılaştırıldı: **10 switch'te eksik satır 0.** Tek fark, yeni
+   oluşturulan SVI'ların kapalı gelmesiydi (`no shutdown` ile açıldı).
+
+Sonra `lab/gns3_fix.py` yalnız bulunan düzeltmeleri bastı (tüm fazı değil; satırlar çekirdek şablonlarından üretilir):
+
+| Düzeltme | Cihaz | Sonuç |
+|---|---|---|
+| `ip route 0.0.0.0 0.0.0.0 <ağ geçidi>` | 5 erişim switch'i + FAB-ERS-1 | BIS-PC1 → 172.16.90.11 **0/4 → 4/4** |
+| Routed Port-channel açıklamaları | CORE1, CORE2, DAG1, DAG2 | Girdi; yeniden başlatmada yine kayboluyor, `gns3_fix.py` tekrar basıyor |
+
+| Kontrol (düzeltmelerden sonra) | Sonuç |
+|---|---|
+| `validate.py` | 13/13 sağlıklı, 97/97 |
+| `lab/gns3_vpcs.py` | 8/8 (yönetim adresi ping'i artık beklenen sonuçlar arasında) |
+| `backup.py` (13 cihaz, enable ile) | 13/13 |
+| `drift.py` (gerçek yedek ↔ şablonlar) | 11/13 uyumlu; DAG1 ve DAG2'deki fark daha önce açıklanan iki kategori (DHCP havuzunda `domain-name` yok, SVI'larda fazladan `ip helper-address`) |
+
+Router'lar yol haritasındaki parolayı kullanmaya devam ediyor. `lab/gns3_run.py sw|rtr <betik>` doğru parola grubunu
+ortam değişkenlerine koyup betiği çalıştırır (değerler ekrana yazılmaz).
+
+### Hızlı yakınsama (`extensions/fast-convergence`) ve gerçek GNS3'te ölçüm
+
+Tam düğüm arızasındaki ~60 sn'lik kesinti OSPF dead süresinden (40 sn) geliyordu. İsteğe bağlı modül alan 0 transit
+arayüzlerinde `hello 1 / dead 4`, DAG'lardaki 7 HSRP grubunda `timers 1 3` ayarlar (CORE1/2, DAG1/2, SNR-RTR;
+`--rollback` ile geri alınır). Ölçüm `lab/gns3_failover.py` ile: gerçek SAT-PC1 (VPCS) internete 0,5 sn aralıkla ping
+atarken düğüm GNS3 API'siyle durdurulur.
+
+| Senaryo | Önce | Sonra |
+|---|---|---|
+| CORE1 tamamen durdu | **61,3 sn** | **14,2 sn** |
+| DAG1 tamamen durdu | 65 sn (QEMU lab ölçümü) | **14,2 sn** |
+
+Kalan ~14 sn: dead süresi (4 sn) + SPF bekleme süreleri + VPCS'in kayıp ping başına zaman aşımı. Daha da kısaltmak
+için `timers throttle spf` ya da BFD gerekir (IOSvL2 BFD'yi desteklemiyor).
+
+Paket kaydı (`docs/captures/`, Wireshark ile açılır): CORE1 durdurulurken SNR-RTR'nin iki uplink'i yakalandı.
+`core1_snr.pcap` içinde ICMP istekleri ~16. saniyede kesiliyor; `core2_snr.pcap` içinde ~29. saniyeden itibaren aynı
+akış CORE2 üzerinden devam ediyor. Önerilen görüntü filtresi: `icmp || ospf`.
+
+GNS3 2.2.61 (Windows) notu: bir düğüm durdurulup yeniden başlatılınca konsol sarmalayıcısı bağlantıları düşürüyor
+(WinError 10053). `POST /v2/projects/<id>/nodes/<id>/console/reset` düzeltir; `gns3_failover.py` bunu kendisi yapar.
 
 Çalıştırma (GNS3 arayüzü açık olmadan da olur):
 
@@ -134,6 +182,8 @@ curl.exe -X POST http://127.0.0.1:3080/v2/projects/load -H "Content-Type: applic
 $env:NET_CONSOLE_HOST = "127.0.0.1"; $env:NET_NO_ENABLE = "1"
 & $py core\scripts\validate.py
 & $py ..\lab\gns3_vpcs.py
+python ..\lab\gns3_run.py sw core\scripts\backup.py --only '@grup'      # enable isteyen işler (sw ya da rtr)
+python ..\lab\gns3_failover.py MRK-CORE1                                 # arıza ölçümü
 ```
 
 Arayüzle açmak için GNS3'ü başlat ve `DesignProject` projesini aç (önce arka plandaki `gns3server` kapatılmalı).
@@ -142,8 +192,8 @@ sessizce kaydırır ve öyle kaydeder.
 
 ## Doğrulanamayanlar
 - Zaman ölçümleri TCG (yazılım emülasyonu) altında alındı; gerçek donanımda ya da KVM'li GNS3 VM'de süreler farklı olur.
-- Gerçek GNS3 projesinde yedek, sapma raporu ve düzeltme basışı yapılamadı (switch enable parolası yok). Düzeltmeler
-  (varsayılan rota, Port-channel açıklamaları) QEMU lab'da kanıtlandı, gerçek projeye henüz uygulanmadı.
+- Hızlı yakınsama modülü yalnız gerçek GNS3 projesinde ölçüldü (CORE1 ve DAG1 durdurma, birer kez); F1–F8'in tamamı
+  bu sürelerle yeniden koşulmadı. Canlı Wireshark gösterimi yapılmadı, kayıt dosyaları bırakıldı.
 - Uçlar VPCS değil, benzetim. DHCP, ARP, ICMP davranışı aynı protokol alışverişidir ama VPCS'in kendisi sınanmadı.
 - Son izleme tekrar koşusu, bilgisayar başka bir işle yüklüyken konsol zaman aşımına düştü; izleme sonuçları bir önceki
   temiz turdan (13/13, alarm, olay, alarmın kalkması) alınmıştır.
