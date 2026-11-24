@@ -17,11 +17,13 @@ CASES = [
     ("SAT-PC1", "172.16.50.12", True, "Satis -> SNC-WEB"),
     ("SAT-PC1", INTERNET, True, "Satis -> internet (NAT)"),
     ("SAT-PC1", "172.16.20.11", False, "Satis -> Personel (ACL engeller)"),
-    ("BIS-PC1", "172.16.10.11", True, "Bilgi Islem -> Satis"),
+    ("BIS-PC1", "@SAT-PC1", True, "Bilgi Islem -> Satis (SAT-PC1'in o anki adresi)"),
     ("BIS-PC1", "172.16.90.11", True, "Bilgi Islem -> ERS-SAT yonetim adresi (statik varsayilan rota duzeltmesi)"),
     ("FAB-PC1", "172.16.50.12", True, "Tesis -> SNC-WEB (GRE tuneli)"),
     ("FAB-PC1", INTERNET, True, "Tesis -> internet (tunel + NAT)"),
 ]
+
+ADDR = {}
 
 
 def vpcs(port, cmd, wait=12):
@@ -55,7 +57,9 @@ def main():
             ip = vpcs(port[name], "show ip", 3)
             addr = next((l.split(":", 1)[1].strip() for l in ip.splitlines() if l.startswith("IP/MASK")), "?") + " (DHCP)"
         print(f"{name}: {addr}")
+        ADDR[name] = addr.split("/")[0]
     for src, dst, expect, label in CASES:
+        dst = ADDR[dst[1:]] if dst.startswith("@") else dst
         out = vpcs(port[src], f"ping {dst} -c 4", 14)
         got = out.count("bytes from")
         if expect is None:

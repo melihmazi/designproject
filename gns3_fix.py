@@ -3,6 +3,7 @@
   - L2 switch'lere statik varsayilan rota (IOSvL2 'ip default-gateway'i yok sayiyor)
   - routed Port-channel aciklamalari (yeniden baslatmada kayboluyor)
   - yeniden yuklemede kapali gelen SVI'lar icin 'no shutdown'
+  - DAG1 DHCP havuzlari: ust aralik dislamasi (.201-.254) ve alan adi
 Satirlar cekirdek sablonlarindan uretilir.   Calistirma: python gns3_run.py sw ../lab/gns3_fix.py
 """
 import sys
@@ -20,6 +21,16 @@ def lines_for(dev):
         out += [f"interface Vlan{v}", " no shutdown"]
     if role in ("access", "branch_sw"):
         out += [l for l in deploy.render(dev, 2 if role == "access" else 3) if l.startswith("ip route 0.0.0.0")]
+    if role == "dag":          # DHCP havuzlari sablondaki gibi: .100-.200 araligi ve alan adi (yalniz DAG1'de uretilir)
+        pool = False
+        for l in deploy.render(dev, 3):
+            if l.startswith("ip dhcp "):
+                pool = l.startswith("ip dhcp pool")
+                out.append(l)
+            elif pool and l.startswith(" "):
+                out.append(l)
+            else:
+                pool = False
     if role in ("core", "dag"):
         cur = None
         for l in deploy.render(dev, 2):
