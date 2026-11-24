@@ -18,7 +18,7 @@ NOT_SHOWN = re.compile(r"^(no shutdown|switchport$|exit)$")
 DEFAULTS = re.compile(r"^(negotiation auto|no ip address|duplex auto|speed auto|media-type rj45|no mop enabled|"
                       r"no mop sysid|ip virtual-reassembly.*|switchport$|tunnel mode gre ip|no ip redirects|"
                       r"standby version 1|ip ospf cost \d+|shutdown|switchport trunk encapsulation .*)$")
-SECTION = re.compile(r"^(interface|router|vlan|ip access-list|ip dhcp pool|line)\b")
+SECTION = re.compile(r"^(interface|router|vlan|ip access-list|ipv6 access-list|ipv6 router|ip dhcp pool|line)\b")
 MANAGED_SECTIONS = ("interface", "ip access-list", "ip dhcp pool", "router")
 # Her okumada degisen satirlar (zaman damgasi, boyut)
 VOLATILE = re.compile(r"^(Building configuration|Current configuration|! Last configuration|! NVRAM config|ntp clock-period)")
@@ -53,6 +53,8 @@ def norm(line):
     line = re.sub(r"\beq (\d+)\b", lambda m: "eq " + PORT_NAMES.get(m.group(1), m.group(1)), line)
     line = re.sub(r"^(permit|deny) (\S+) (\S+) 0\.0\.0\.0$", r"\1 \2 host \3", line)
     line = re.sub(r"^(ip ospf message-digest-key \d+ md5) .*$", r"\1 <anahtar>", line)   # anahtar/ozet karsilastirilmaz
+    # IOS IPv6 adreslerini buyuk harfle yazar (2001:DB8:...); karsilastirma kucuk harfle yapilir
+    line = re.sub(r"\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,}(?:/\d+)?", lambda m: m.group(0).lower(), line)
     return line
 
 
@@ -109,7 +111,7 @@ def satisfied(line, running_lines):
         return "no ip routing" not in running_lines
     if line.startswith("switchport trunk encapsulation"):
         return True
-    if line.startswith(("no passive-interface", "no switchport")):
+    if line.startswith("no passive-interface") or line == "no switchport":
         return False                     # bunlar running-config'te aynen gorunur
     if line.startswith("no "):           # genel "no X": X yoksa istek yerine gelmis demektir
         return line[3:] not in running_lines

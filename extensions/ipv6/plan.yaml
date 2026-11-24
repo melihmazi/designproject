@@ -1,0 +1,6 @@
+# IPv6 adres plani (dokumantasyon araligi 2001:db8::/32). Cekirdek envanterine dokunmaz.
+site: "2001:db8:acad"            # sirket /48'i; VLAN N -> 2001:db8:acad:N::/64 (N ondalik yazilir)
+loopbacks: "2001:db8:acad:ffff"  # Loopback0 -> ...:ffff::<IPv4 router-id son okteti>/128
+wan: "2001:db8:0:1"              # SNR (::1) - ISS (::2)
+internet: "2001:db8:ffff::1"     # ISS-RTR Loopback0: simule internet hedefi
+dns: "2001:db8:acad:50::11"

@@ -76,6 +76,7 @@ def render():
                      f"<table><tr><td><b>Kontrol</b></td><td><b>Beklenen</b></td><td><b>Gerçek</b></td></tr>{rows}</table>"
                      f"</details></div>")
     parts.append("</div>")
+    parts.append(monitor_section())
     if drift:
         parts.append("<h3>Config sapması (şablon ↔ canlı)</h3><div class='drift'>")
         clean = [r["cihaz"] for r in drift["sonuc"] if not r["eksik"] and not r["fazla"]]
@@ -87,6 +88,38 @@ def render():
                 parts.append(f"<details open><summary>{e(r['cihaz'])}</summary><table>{items}</table></details>")
         parts.append("</div>")
     return "\n".join(parts)
+
+
+def monitor_section():
+    """extensions/monitoring ciktisi (SNMP yoklamasi) varsa: cihaz tablosu + alarmlar + son olaylar."""
+    f = REPORTS / "monitor_latest.json"
+    if not f.exists():
+        return ""
+    e = html.escape
+    mon = json.loads(f.read_text(encoding="utf-8"))
+    rows = []
+    for name, d in mon["cihazlar"].items():
+        if d["durum"] == "ERISILEMIYOR":
+            rows.append(f"<tr class='HATA'><td>{e(name)}</td><td>ERİŞİLEMİYOR</td><td colspan='4'>{e(d['hata'])}</td></tr>")
+            continue
+        up = f"{d['uptime_sn'] // 3600} sa {d['uptime_sn'] % 3600 // 60} dk"
+        cpu = "-" if d["cpu"] is None else f"%{d['cpu']}"
+        down = ", ".join(d["kritik_down"]) or "-"
+        rows.append(f"<tr class='{'HATA' if d['durum'] != 'OK' else 'OK'}'><td>{e(name)}</td><td>{e(d['durum'])}</td>"
+                    f"<td>{e(up)}</td><td>{cpu}</td><td>{d['up']}/{d['toplam']}</td><td>{e(down)}</td></tr>")
+    out = [f"<h3>Canlı izleme (SNMP) <span class='sub'>· {e(mon['zaman'].replace('T', ' '))}</span></h3><div class='drift'>",
+           f"<div>{sum(1 for d in mon['cihazlar'].values() if d['durum'] == 'OK')}/{len(mon['cihazlar'])} cihaz OK · "
+           f"{len(mon['alarmlar'])} alarm</div>",
+           "<table><tr><td><b>Cihaz</b></td><td><b>Durum</b></td><td><b>Çalışma süresi</b></td><td><b>CPU</b></td>"
+           "<td><b>Arayüz (up/toplam)</b></td><td><b>Kapalı kritik link</b></td></tr>" + "".join(rows) + "</table>"]
+    ev = REPORTS / "monitor_events.jsonl"
+    if ev.exists():
+        last = [json.loads(l) for l in ev.read_text(encoding="utf-8").splitlines()[-8:] if l.strip()]
+        if last:
+            out.append("<details open><summary>Son olaylar</summary><table>" + "".join(
+                f"<tr><td>{e(x['zaman'].replace('T', ' '))}</td><td>{e(x['cihaz'])}</td><td>{e(x['olay'])}</td></tr>" for x in reversed(last)) + "</table></details>")
+    out.append("</div>")
+    return chr(10).join(out)
 
 
 def page():

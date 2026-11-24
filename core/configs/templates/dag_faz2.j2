@@ -8,7 +8,7 @@ interface Port-channel1
  ip ospf network point-to-point
  ip ospf 1 area 0
 interface Vlan254
- description DAG1-DAG2-TRANSIT
+ description {{ transit_description }}
  ip address {{ vlan254_ip }}
  ip ospf network point-to-point
  ip ospf 1 area 0

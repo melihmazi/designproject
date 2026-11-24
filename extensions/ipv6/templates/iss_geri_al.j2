@@ -1,0 +1,6 @@
+no ipv6 route {{ v6.site }}::/48 {{ v6.wan }}::1
+interface Loopback0
+ no ipv6 address {{ v6.internet }}/128
+interface GigabitEthernet0/0
+ no ipv6 address {{ v6.wan }}::2/64
+no ipv6 unicast-routing

@@ -11,6 +11,7 @@ Cikti: konsol tablosu + reports/health_YYYYMMDD_HHMMSS.json.  Cikis kodu: 0 sagl
 """
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -44,7 +45,9 @@ def collect(dev, commands, attempts=3):
         try:
             deploy.wake_console(dev["console_host"], dev["console_port"])
             with ConnectHandler(**deploy.conn_params(dev)) as conn:
-                if not conn.check_enable_mode():
+                # NET_NO_ENABLE=1: enable parolasi bilinmeyen cihazda da calisir; buradaki show komutlarinin
+                # hepsi kullanici kipinde (privilege 1) gecerlidir. Rapor salt okunurdur.
+                if not os.getenv("NET_NO_ENABLE") and not conn.check_enable_mode():
                     conn.enable()
                 return {c: conn.send_command(c, read_timeout=90) for c in commands}
         except Exception as exc:

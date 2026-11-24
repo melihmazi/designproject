@@ -65,7 +65,30 @@ docs/checkpoints/          faz notları        docs/captures/  pcap + analiz
 & $py extensions\security-hardening\harden.py --dry-run            # sertleştirme (--rollback ile geri al)
 & $py extensions\config-history\commit_backups.py                  # yedekleri git geçmişine işle
 & $py extensions\dashboard\dashboard.py --serve                    # http://localhost:5000
+& $py extensions\ipv6\ipv6.py --dry-run                            # IPv6 dual-stack (--verify, --rollback)
+& $py extensions\monitoring\monitor.py --setup                     # SNMP config'ini bas
+& $py extensions\monitoring\monitor.py --watch 30                  # 30 sn'de bir yokla, alarm üret
 ```
+
+| Modül | Klasör | Ne yapar | Ek ayar (`.env`) |
+|---|---|---|---|
+| IPv6 dual-stack | `extensions/ipv6` | OSPFv3 (alanlar IPv4 ile aynı), SLAAC, IPv6 ACL; adres planı `plan.yaml` | — |
+| İzleme | `extensions/monitoring` | SNMP v2c ile 13 cihazı yoklar; link ve erişim alarmı; pano "Canlı izleme" bölümü | `NET_SNMP_RO`, `NET_SNMP_STATION` |
+| Ansible | `extensions/ansible` | Faz 1–2 hedefinin deklaratif karşılığı; envanter `devices.yaml`'dan üretilir | `NET_USER`, `NET_PASS`, `NET_ENABLE` |
+
+**Ansible** Windows'ta kontrol düğümü olarak çalışmaz; Linux ya da WSL gerekir. Cihazlara SSH ile bağlanır
+(`network_cli`), bu yüzden kontrol düğümü yönetim ağına (VLAN 90) erişebilmelidir:
+
+```bash
+cd extensions/ansible
+export NET_USER=admin NET_PASS=... NET_ENABLE=...
+ansible-playbook site.yml              # ikinci çalıştırmada changed=0 beklenir
+ansible-playbook site.yml --check --diff
+```
+
+Laboratuvarda bunun için `..\lab\ansible_vm.py` RAM'de çalışan küçük bir Alpine Linux açar (`start`, `run`, `stop`).
+
+**Pano ve laboratuvar aynı anda çalışırken** panoyu başka portta aç (`--port 5050`): lab konsolları 5000–5024 arasını kullanır.
 
 ## Rol ↔ şablon
 
@@ -86,6 +109,13 @@ docs/checkpoints/          faz notları        docs/captures/  pcap + analiz
 - **Docker yok.** Devir notu uyarınca DHCP havuzları MRK-DAG1'de, FAB-RTR helper adresi `172.20.20.3`.
 - **Basış sonrası doğrulama.** `deploy.py` her cihazda `show running-config`'i geri okur; girmemiş satırı bir kez daha basar, yine yoksa `EKSIK` olarak raporlar. Nedeni `faz6.md`'de.
 - **Parolalar `.env`'de.** Depodaki `.env` lab için üretilmiş test değerleridir; asıl GNS3 projesinde kendi değerlerinle değiştir.
+
+## Gerçek GNS3 projesinde çalıştırma
+
+GNS3 2.2.61 bu bilgisayarda kurulu; proje `C:\Users\merts\GNS3\projects\DesignProject`. Adımlar ve sonuçlar
+`docs/checkpoints/tam-topoloji.md` içinde ("Gerçek proje GNS3'te"). Kısaca: sağlık raporu enable parolası olmadan
+`NET_NO_ENABLE=1` ile çalışır; `deploy.py`, `backup.py` ve genişletmeler için `.env`'e gerçek parolalar yazılmalıdır.
+GNS3 ile QEMU lab aynı konsol portlarını kullanır, ikisi aynı anda çalıştırılmaz.
 
 ## GNS3 olmadan mini laboratuvar (`..\lab`)
 
@@ -108,5 +138,6 @@ $env:NET_CONSOLE_HOST = "127.0.0.1"
 | `faz5_test.py` | DAG1+DAG2 | 1,5 GB | ~20 dk | Sağlık raporu yeşil → kırmızı → yeşil |
 | `wan_test.py` | 3 router | 1,5 GB | ~10 dk | GRE, Area 300, NAT, tünel arızası |
 | `big_test.py` | 9 cihaz | ~6,2 GB | ~50 dk | Uçtan uca: DHCP relay, ACL, sertleştirme, F3, F4 |
+| `up.py` + `full_test.py` | 13 cihaz + 17 uç | ~8 GB | ~2,5 saat | Her şey: kurulum, F1–F8, saldırı testleri, geri alma, IPv6, izleme |
 
 `$env:LAB_CAPTURE = "1"` ile başlatılan düğümlerin kablolu portları `..\lab\captures\*.pcap` olarak kaydedilir.

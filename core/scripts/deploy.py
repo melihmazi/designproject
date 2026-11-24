@@ -30,7 +30,7 @@ RENDERED = CORE / "configs" / "rendered"
 ERROR_MARKERS = ("% Invalid", "% Incomplete", "% Ambiguous", "% Unknown", "Command rejected")
 # '%' ile baslayip hata olmayan IOS bilgi mesajlari
 BENIGN = re.compile(r"^%\s*(Warning: portfast|Portfast (has been|will be) configured|Generating|Interface .* changed state|"
-                    r"OSPF: Reference bandwidth is changed)", re.I)
+                    r"OSPF(v3-\d+-IPv6)?:\s+Reference bandwidth is changed|% Duplicate permit statement ignored)", re.I)
 
 log = logging.getLogger("deploy")
 

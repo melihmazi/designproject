@@ -12,6 +12,7 @@ interface Port-channel1
  description {{ po1.description }}
 interface range {{ po1.members }}
  no switchport
+ description {{ po1.member_description }}
  channel-group 1 mode active
  no shutdown
 ! --- Po2: DAG-DAG L2 trunk LACP demeti (D3) ---

@@ -1,0 +1,51 @@
+ipv6 unicast-routing
+ipv6 router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ passive-interface default
+{% for i in transit %}
+ no passive-interface {{ i }}
+{% endfor %}
+interface Loopback0
+ ipv6 address {{ v6.loopbacks }}::{{ rid }}/128
+ ipv6 ospf 1 area 0
+{% for i in transit %}
+interface {{ i }}
+ ipv6 enable
+ ipv6 ospf network point-to-point
+ ipv6 ospf 1 area 0
+{% endfor %}
+! --- IPv6 ACL'ler (Bolum 7.1 politikasinin IPv6 karsiligi). ND once: acik deny'lar komsu kesfini kesmesin ---
+{% for v in net.restricted_vlans %}
+ipv6 access-list V6-V{{ v }}-IN
+ permit icmp any any nd-ns
+ permit icmp any any nd-na
+ permit icmp any any router-solicitation
+ permit tcp {{ v6.site }}:{{ v }}::/64 any established
+ permit icmp {{ v6.site }}:{{ v }}::/64 any echo-reply
+{% for t in net.restricted_targets if t != v %}
+ deny ipv6 {{ v6.site }}:{{ v }}::/64 {{ v6.site }}:{{ t }}::/64
+{% endfor %}
+ deny ipv6 {{ v6.site }}:{{ v }}::/64 {{ v6.loopbacks }}::/64
+ permit ipv6 any any
+{% endfor %}
+ipv6 access-list V6-V60-IN
+ permit icmp any any nd-ns
+ permit icmp any any nd-na
+ permit icmp any any router-solicitation
+ permit udp {{ v6.site }}:60::/64 host {{ v6.dns }} eq 53
+ permit tcp {{ v6.site }}:60::/64 host {{ v6.dns }} eq 53
+ deny ipv6 {{ v6.site }}:60::/64 {{ v6.site }}::/48
+ permit ipv6 any any
+! --- SVI'lar: /64, OSPFv3 Area 100. Varsayilan ag gecidi secimi: HSRP active olan DAG "High" tercihli RA yollar ---
+{% for s in net.svis %}
+interface Vlan{{ s.vlan }}
+ ipv6 address {{ v6.site }}:{{ s.vlan }}::{{ svi_host }}/64
+{% if s.active == name %}
+ ipv6 nd router-preference High
+{% endif %}
+ ipv6 ospf 1 area 100
+{% if s.vlan in net.restricted_vlans or s.vlan == 60 %}
+ ipv6 traffic-filter V6-V{{ s.vlan }}-IN in
+{% endif %}
+{% endfor %}

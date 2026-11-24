@@ -1,0 +1,134 @@
+---
+# Faz 1-2 hedefinin deklaratif karsiligi: VLAN, trunk/access portlar, yonetim SVI, L3 adresler, OSPF, HSRP.
+# Netmiko (deploy.py) "su satirlari bas" der; burada "cihaz su durumda olsun" denir:
+# istenen satirlar running-config icinde zaten varsa hicbir sey gonderilmez (changed=0).
+# Faz 3 servisleri (NAT, GRE, DHCP, ACL) kapsam disidir; onlari deploy.py yonetir.
+
+- name: Erisim switchleri - VLAN, uplink, uc portlar, yonetim
+  hosts: access
+  tasks:
+    - name: VLAN tanimlari
+      cisco.ios.ios_config:
+        parents: "vlan {{ item.id }}"
+        lines: ["name {{ item.name }}"]
+      loop: "{{ vlans }}"
+      loop_control: {label: "vlan {{ item.id }}"}
+
+    - name: Uplink trunk portlari
+      cisco.ios.ios_config:
+        parents: "interface {{ item }}"
+        lines:
+          - description UPLINK-DAG
+          - switchport trunk allowed vlan {{ trunk_allowed }}
+          - switchport trunk encapsulation dot1q
+          - switchport trunk native vlan {{ net.native_vlan }}
+          - switchport mode trunk
+      loop: [GigabitEthernet0/0, GigabitEthernet0/1]
+
+    - name: Uc portlar
+      cisco.ios.ios_config:
+        parents: "interface {{ item.name }}"
+        lines:
+          - description {{ item.description }}
+          - switchport access vlan {{ item.vlan }}
+          - switchport mode access
+          - spanning-tree portfast edge
+          - spanning-tree bpduguard enable
+      loop: "{{ access_port_list }}"
+      loop_control: {label: "{{ item.name }}"}
+
+    - name: Yonetim SVI
+      cisco.ios.ios_config:
+        parents: "interface Vlan{{ net.native_vlan }}"
+        lines: ["ip address {{ mgmt_ip }} 255.255.255.0"]
+
+    - name: Varsayilan ag gecidi
+      cisco.ios.ios_config:
+        lines: [ip default-gateway 172.16.90.1, ip route 0.0.0.0 0.0.0.0 172.16.90.1]
+
+- name: Dagitim switchleri - VLAN, STP koku, SVI + HSRP, OSPF
+  hosts: dag
+  tasks:
+    - name: VLAN tanimlari
+      cisco.ios.ios_config:
+        parents: "vlan {{ item.id }}"
+        lines: ["name {{ item.name }}"]
+      loop: "{{ net.vlans }}"
+      loop_control: {label: "vlan {{ item.id }}"}
+
+    - name: STP kok oncelikleri
+      cisco.ios.ios_config:
+        lines:
+          - spanning-tree mode rapid-pvst
+          - spanning-tree vlan {{ stp_root_vlans }} priority 4096
+          - spanning-tree vlan {{ stp_sec_vlans }} priority 8192
+
+    - name: Erisim uplink portlari
+      cisco.ios.ios_config:
+        parents: "interface {{ item.port }}"
+        lines:
+          - description {{ item.description }}
+          - switchport trunk allowed vlan {{ item.vlans }}
+          - switchport trunk encapsulation dot1q
+          - switchport trunk native vlan {{ net.native_vlan }}
+          - switchport mode trunk
+      loop: "{{ uplinks }}"
+      loop_control: {label: "{{ item.port }}"}
+
+    - name: SVI ve HSRP
+      cisco.ios.ios_config:
+        parents: "interface Vlan{{ item.vlan }}"
+        lines:
+          - description {{ item.name }}
+          - ip address {{ item.prefix }}.{{ svi_host }} 255.255.255.0
+          - standby {{ item.vlan }} ip {{ item.prefix }}.1
+          - standby {{ item.vlan }} priority {{ item.priority }}
+          - standby {{ item.vlan }} preempt
+          - ip ospf 1 area 100
+      loop: "{{ svi_list }}"
+      loop_control: {label: "Vlan{{ item.vlan }}"}
+
+    - name: Loopback0
+      cisco.ios.ios_config:
+        parents: interface Loopback0
+        lines: ["ip address {{ router_id }} 255.255.255.255", ip ospf 1 area 0]
+
+    - name: Core ve DAG transit arayuzleri
+      cisco.ios.ios_config:
+        parents: "interface {{ item.name }}"
+        lines: ["ip address {{ item.ip }}", ip ospf network point-to-point, ip ospf 1 area 0]
+      loop:
+        - {name: Port-channel1, ip: "{{ po1.ip }}"}
+        - {name: Vlan254, ip: "{{ vlan254_ip }}"}
+      loop_control: {label: "{{ item.name }}"}
+
+    - name: OSPF sureci
+      cisco.ios.ios_config:
+        parents: router ospf 1
+        lines:
+          - router-id {{ router_id }}
+          - auto-cost reference-bandwidth 10000
+          - passive-interface default
+          - no passive-interface Port-channel1
+          - no passive-interface Vlan254
+
+- name: Core switchleri ve sinir router - L3 adresler, OSPF
+  hosts: core:snr
+  tasks:
+    - name: Loopback0
+      cisco.ios.ios_config:
+        parents: interface Loopback0
+        lines: ["ip address {{ router_id }} 255.255.255.255", ip ospf 1 area 0]
+
+    - name: Noktadan noktaya L3 arayuzler
+      cisco.ios.ios_config:
+        parents: "interface {{ item.name }}"
+        lines: ["ip address {{ item.ip }}", ip ospf network point-to-point, ip ospf 1 area 0]
+      loop: "{{ l3_ports }}"
+      loop_control: {label: "{{ item.name }}"}
+
+    - name: OSPF sureci
+      cisco.ios.ios_config:
+        parents: router ospf 1
+        lines: "{{ ['router-id ' ~ router_id, 'auto-cost reference-bandwidth 10000', 'passive-interface default']
+                   + (l3_ports | map(attribute='name') | map('regex_replace', '^', 'no passive-interface ') | list) }}"

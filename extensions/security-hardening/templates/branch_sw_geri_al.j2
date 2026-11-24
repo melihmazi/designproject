@@ -11,5 +11,6 @@ interface GigabitEthernet0/1
  no ip dhcp snooping limit rate
 interface GigabitEthernet0/0
  no ip dhcp snooping trust
+exit
 no ip dhcp snooping vlan {{ net.fab_lan.vlan }}
 no ip dhcp snooping

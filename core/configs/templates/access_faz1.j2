@@ -13,7 +13,7 @@ interface range GigabitEthernet0/0 - 1
  no shutdown
 {% for p in access_ports %}
 interface range {{ p.range }}
- description UC-CIHAZ
+ description {{ p.description }}
  switchport mode access
  switchport access vlan {{ p.vlan }}
  spanning-tree portfast

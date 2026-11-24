@@ -13,5 +13,6 @@ interface range {{ p.range }}
 {% endfor %}
 interface range GigabitEthernet0/0 - 1
  no ip dhcp snooping trust
+exit
 no ip dhcp snooping vlan {{ user_vlans }}
 no ip dhcp snooping

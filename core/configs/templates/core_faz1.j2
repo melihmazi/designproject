@@ -9,6 +9,7 @@ interface Port-channel{{ po.id }}
  description {{ po.description }}
 interface range {{ po.members }}
  no switchport
+ description {{ po.member_description }}
  channel-group {{ po.id }} mode active
  no shutdown
 {% endfor %}

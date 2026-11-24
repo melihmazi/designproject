@@ -270,3 +270,13 @@ def test_stub_bayragi_iki_ucta_var(devices):
     by = {d["name"]: [l.strip() for l in deploy.render(d, 3)] for d in devices if d["role"] in ("snr", "fab")}
     assert "area 300 stub no-summary" in by["SNR-RTR"]
     assert "area 300 stub" in by["FAB-RTR"]
+
+
+def test_l2_switchlerde_varsayilan_rota(devices):
+    """IOSvL2'de ip routing varsayilan acik oldugu icin 'ip default-gateway' yok sayilir; yonetim adresine baska
+    VLAN'dan ulasmak icin statik varsayilan rota gerekir (13 cihazli canli testte A6 bu yuzden kalmisti)."""
+    for d in devices:
+        if d["role"] == "access":
+            assert "ip route 0.0.0.0 0.0.0.0 172.16.90.1" in deploy.render(d, 2), d["name"]
+        if d["role"] == "branch_sw":
+            assert "ip route 0.0.0.0 0.0.0.0 172.18.10.1" in deploy.render(d, 3), d["name"]

@@ -1,0 +1,31 @@
+{% set lan = v6.site ~ ":" ~ net.fab_lan.vlan %}
+ipv6 unicast-routing
+ipv6 router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ area 300 stub
+ passive-interface default
+ no passive-interface Tunnel0
+interface Loopback0
+ ipv6 address {{ v6.loopbacks }}::{{ rid }}/128
+ ipv6 ospf 1 area 300
+ipv6 access-list V6-FAB-IN
+ permit icmp any any nd-ns
+ permit icmp any any nd-na
+ permit icmp any any router-solicitation
+ permit tcp {{ lan }}::/64 any established
+ permit icmp {{ lan }}::/64 any echo-reply
+{% for t in net.restricted_targets %}
+ deny ipv6 {{ lan }}::/64 {{ v6.site }}:{{ t }}::/64
+{% endfor %}
+ deny ipv6 {{ lan }}::/64 {{ v6.loopbacks }}::/64
+ permit ipv6 any any
+interface {{ lan_if }}
+ ipv6 address {{ lan }}::1/64
+ ipv6 ospf 1 area 300
+ ipv6 traffic-filter V6-FAB-IN in
+interface Tunnel0
+ ipv6 enable
+ ipv6 mtu 1400
+ ipv6 ospf network point-to-point
+ ipv6 ospf 1 area 300

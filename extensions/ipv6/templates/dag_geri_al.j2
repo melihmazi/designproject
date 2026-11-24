@@ -1,0 +1,24 @@
+{% for s in net.svis %}
+interface Vlan{{ s.vlan }}
+{% if s.vlan in net.restricted_vlans or s.vlan == 60 %}
+ no ipv6 traffic-filter V6-V{{ s.vlan }}-IN in
+{% endif %}
+ no ipv6 ospf 1 area 100
+ no ipv6 nd router-preference
+ no ipv6 address {{ v6.site }}:{{ s.vlan }}::{{ svi_host }}/64
+{% endfor %}
+{% for v in net.restricted_vlans %}
+no ipv6 access-list V6-V{{ v }}-IN
+{% endfor %}
+no ipv6 access-list V6-V60-IN
+{% for i in transit %}
+interface {{ i }}
+ no ipv6 ospf 1 area 0
+ no ipv6 ospf network point-to-point
+ no ipv6 enable
+{% endfor %}
+interface Loopback0
+ no ipv6 ospf 1 area 0
+ no ipv6 address {{ v6.loopbacks }}::{{ rid }}/128
+no ipv6 router ospf 1
+no ipv6 unicast-routing

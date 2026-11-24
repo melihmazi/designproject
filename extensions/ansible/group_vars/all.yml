@@ -1,0 +1,9 @@
+# Baglanti: SSH uzerinden network_cli. Parolalar ortam degiskeninden (NET_PASS / NET_ENABLE); dosyaya yazilmaz.
+ansible_connection: ansible.netcommon.network_cli
+ansible_network_os: cisco.ios.ios
+ansible_network_cli_ssh_type: paramiko        # IOSv eski SSH algoritmalari kullanir
+ansible_user: "{{ lookup('env', 'NET_USER') | default('admin', true) }}"
+ansible_password: "{{ lookup('env', 'NET_PASS') }}"
+ansible_become: true
+ansible_become_method: enable
+ansible_become_password: "{{ lookup('env', 'NET_ENABLE') }}"

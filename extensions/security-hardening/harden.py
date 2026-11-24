@@ -50,10 +50,12 @@ def context(dev):
         used = {"GigabitEthernet0/0", "GigabitEthernet0/1"}
         for p in dev["access_ports"]:
             used |= set(expand(p["range"]))
+        used |= set(filter(None, os.getenv("NET_RESERVED_PORTS", "").split(",")))   # orn. bant disi yonetim portu
         ctx["unused_ports"] = [p for p in ALL_PORTS if p not in used]
         ctx["user_vlans"] = ",".join(str(v["id"]) for v in dev["vlans"] if v["id"] != dev["net"]["native_vlan"])
     if dev["role"] == "branch_sw":
-        ctx["unused_ports"] = [p for p in ALL_PORTS if p not in ("GigabitEthernet0/0", "GigabitEthernet0/1")]
+        keep = {"GigabitEthernet0/0", "GigabitEthernet0/1"} | set(filter(None, os.getenv("NET_RESERVED_PORTS", "").split(",")))
+        ctx["unused_ports"] = [p for p in ALL_PORTS if p not in keep]
     if dev["role"] == "core":
         ctx["ospf_ifs"] = [f"Port-channel{po['id']}" for po in dev["port_channels"]] + [p["name"] for p in dev["routed_ports"]]
     if dev["role"] == "dag":
