@@ -54,6 +54,10 @@ def lines_for(dev, rollback):
 
 def work(dev, dry_run, rollback):
     lines = lines_for(dev, rollback)
+    # sapma raporu icin: drift.py --also extensions/fast-convergence/rendered
+    out = HERE / "rendered"
+    out.mkdir(exist_ok=True)
+    (out / f"{dev['name']}_{'geri_al' if rollback else 'hizli'}.cfg").write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
     if dry_run:
         return dev["name"], f"DRY-RUN ({len(lines)} satir)", lines
     try:

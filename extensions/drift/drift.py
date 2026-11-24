@@ -16,6 +16,7 @@ konsol telnet oldugu icin (yol haritasi U6) NAPALM calismaz. Mantik ayni: istene
 """
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,7 @@ RENDERED = PROJECT / "core" / "configs" / "rendered"
 BACKUPS = PROJECT / "backups"
 
 
+LEARNED = re.compile(r"switchport port-security mac-address sticky [0-9a-f.]+$")
 ALSO = []          # --also ile eklenen ek "altin" klasorler (orn. sertlestirme ciktilari)
 
 
@@ -37,6 +39,8 @@ def compare(name, running_text):
         files += sorted(f for f in Path(extra_dir).glob(f"{name}_*.cfg") if "geri_al" not in f.name)
     golden = confcheck.merge(f.read_text(encoding="utf-8") for f in files)
     missing, extra = confcheck.compare(golden, running_text)
+    # Port Security'nin kendi ogrendigi MAC satirlari cihaz tarafindan yazilir; elle degisiklik degildir
+    extra = [(sec, l) for sec, l in extra if not LEARNED.match(l)]
     return {"cihaz": name, "sablon_dosyasi": len(files), "eksik": missing, "fazla": extra}
 
 

@@ -120,6 +120,11 @@ GNS3 2.2.61 bu bilgisayarda kurulu; proje `C:\Users\merts\GNS3\projects\DesignPr
 `lab/gns3_env.txt`, router parolaları yol haritasından okunur).
 GNS3 ile QEMU lab aynı konsol portlarını kullanır, ikisi aynı anda çalıştırılmaz.
 
+Gerçek projede koşan betikler (`..\lab`): `gns3_vpcs.py` (uçtan uca), `gns3_acl.py` (ACL tablosu + DHCP),
+`gns3_links.py` (F1, F2, F5–F8), `gns3_failover.py` (F3, F4), `gns3_capture.py` (paket kaydı), `gns3_fix.py`
+(düzeltmeler), `gns3_show.py <cihaz> "show ..."`. Faz bazında kanıt `docs/checkpoints/faz0.md` … `faz6.md`,
+canlı gösterim sırası `docs/sunum-rehberi.md`.
+
 ## GNS3 olmadan mini laboratuvar (`..\lab`)
 
 GNS3 kurulu olmayan veya RAM'i az bir makinede gerçek IOSv / IOSvL2 imajlarını doğrudan QEMU ile çalıştırır.

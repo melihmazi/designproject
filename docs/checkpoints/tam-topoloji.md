@@ -190,10 +190,70 @@ Arayüzle açmak için GNS3'ü başlat ve `DesignProject` projesini aç (önce a
 Dikkat: proje yüklenirken 5000–5058 arası konsol portları boş olmalı (QEMU lab kapalı); doluysa GNS3 portları
 sessizce kaydırır ve öyle kaydeder.
 
+### Üçüncü tur (25 Kasım): yol haritasının kalan kabul ölçütleri gerçek projede
+
+Bu turda her şey gerçek GNS3 projesinde ve gerçek VPCS uçlarıyla koşuldu. Faz bazında kanıt: `faz0.md` … `faz3.md`.
+
+| Ne | Betik | Sonuç |
+|---|---|---|
+| Bağlantı arızaları F1, F2, F5, F8, F7, F6 | `lab/gns3_links.py` | 15/15 (F7 ve F6'nın dönüş kontrolü ikinci koşuda; aşağıda) |
+| ACL tablosu A1–A12 + DHCP (yol haritası 12.3, 12.4) | `lab/gns3_acl.py` | 16/16; altı ACL'in sayaçları arttı |
+| Beş paket kaydı | `lab/gns3_capture.py` | `docs/captures/gercek/analiz.md` |
+| Canlı pytest | `pytest extensions/tests --live` | 53 geçti |
+| IPv6 dual-stack | `extensions/ipv6/ipv6.py` | 7 cihaza basıldı; OSPFv3 komşulukları 14/14 FULL |
+| Güvenlik sertleştirme | `extensions/security-hardening/harden.py` | 12 cihaza basıldı, 0 hata |
+| Sertleştirme sonrası sağlık, VPCS, ACL/DHCP | `validate.py`, `gns3_vpcs.py`, `gns3_acl.py` | 13/13 (97/97), 8/8, 16/16 |
+| Yapılandırma geçmişi | `backup.py --sanitize` + `commit_backups.py` | 13/13 yedek, yerel geçmiş deposuna işlendi |
+| Sapma raporu (şablon + üç genişletme) | `drift.py --also ...` | 11/13 uyumlu (aşağıda) |
+| Son yapılandırmayla CORE1 arızası | `lab/gns3_failover.py MRK-CORE1` | en uzun kesinti 14,2 sn |
+
+**Ölçülen arıza süreleri** (hızlı zamanlayıcılar açık, 0,5 sn aralıklı ping):
+
+| # | Eylem | Kayıp | En uzun kesinti |
+|---|---|---|---|
+| F1 | CORE1 `Gi0/0` kapatıldı | 0/160 | 0 sn |
+| F2 | CORE1 `Gi0/0–1` kapatıldı | 0/200 | 0 sn |
+| F5 | DAG1 `Gi1/0` kapatıldı | 6/160 | 9,6 sn |
+| F8 | DAG1 `Gi1/2` kapatıldı | 14/160 | 6,6 sn |
+| F7 | SNR `Tunnel0` kapatıldı | Tesis izole, Merkez etkilenmedi | geri açınca 15 sn'de döndü |
+| F6 | SNR `Gi0/2` kapatıldı | internet ve Tesis kesildi, Merkez içi sürdü | geri açınca 29 sn'de döndü |
+
+İlk koşuda F7 ve F6'nın "geri geldi" kontrolü kaldı: betik sabit süre bekleyip tek ping deniyordu. Ağ o an dönmüştü
+(hemen ardından `gns3_vpcs.py` 8/8). Betik yoklayarak süreyi ölçecek biçimde değiştirildi, ikinci koşu 7/7.
+
+**IPv6, gerçek VPCS'ten** (`lab/logs/gns3_ipv6_vpcs.txt`):
+- SAT-PC1 `ip auto` ile `2001:db8:acad:10::/64` içinden, FAB-PC1 `2001:db8:acad:110::/64` içinden adres aldı (SLAAC).
+- SAT-PC1 → `2001:db8:ffff::1` (simüle IPv6 internet) 3/4; FAB-PC1 → aynı hedef 4/4 (tünelden).
+- MSF-DZ1 → `2001:db8:acad:10::2` engellendi: ICMPv6 tip 1 kod 5 (misafir IPv6 ACL'i).
+- Sunucu VPCS'lerine IPv6 adresi verilmedi; `2001:db8:acad:50::11` pingi yanıtsız. Beklenen durum.
+- VPCS, RA'daki yönlendirici tercihini (High) dikkate almıyor: SAT-PC1 ağ geçidi olarak DAG2'yi seçti. Erişim etkilenmiyor.
+
+**Sapma raporunda yapılan temizlik:**
+- DAG1 DHCP havuzları şablonla eşitlendi: `.201–.254` dışlaması ve `domain-name` eklendi (`lab/gns3_fix.py`).
+- Hızlı yakınsama modülü ürettiği satırları `extensions/fast-convergence/rendered/` altına yazıyor; sapma raporuna
+  `--also` ile verilince "fazla" görünmüyor.
+- Port Security'nin kendi öğrendiği `mac-address sticky <MAC>` satırları artık sapma sayılmıyor.
+- Kalan tek fark, DAG1 ve DAG2 SVI'larındaki `ip helper-address 172.16.50.10`. Yol haritasındaki SNC-DHCP (Docker)
+  planından kalma; sunucu VPCS olduğu için etkisiz. Bilerek silinmedi.
+
+**Gerçek projenin şu anki durumu:** çekirdek Faz 1–3 + iki düzeltme + hızlı yakınsama + IPv6 + sertleştirme uygulanmış
+ve kayıtlı (`write memory`). Geri almak için sırayla (her biri önce `sw`, sonra `rtr` ile):
+
+```powershell
+python ..\lab\gns3_run.py sw extensions\security-hardening\harden.py --rollback --only '@grup'
+python ..\lab\gns3_run.py sw extensions\ipv6\ipv6.py --rollback --only '@grup'
+python ..\lab\gns3_run.py sw extensions\fast-convergence\hizli.py --rollback --only '@grup'
+```
+
+Canlı gösterim sırası: `docs/sunum-rehberi.md`.
+
 ## Doğrulanamayanlar
 - Zaman ölçümleri TCG (yazılım emülasyonu) altında alındı; gerçek donanımda ya da KVM'li GNS3 VM'de süreler farklı olur.
-- Hızlı yakınsama modülü yalnız gerçek GNS3 projesinde ölçüldü (CORE1 ve DAG1 durdurma, birer kez); F1–F8'in tamamı
-  bu sürelerle yeniden koşulmadı. Canlı Wireshark gösterimi yapılmadı, kayıt dosyaları bırakıldı.
-- Uçlar VPCS değil, benzetim. DHCP, ARP, ICMP davranışı aynı protokol alışverişidir ama VPCS'in kendisi sınanmadı.
+- Canlı Wireshark gösterimi (arayüzde) yapılmadı; kayıtlar başsız alındı, dosyalar `docs/captures/gercek/` altında.
+- Gerçek GNS3 projesinde sınanmayanlar: saldırı testleri (kaçak DHCP, MAC taşması), SNMP izleme ve Ansible. Bunlar
+  saldırgan uç, bant dışı yönetim portu ve Linux denetim makinesi ister; QEMU lab'da sınandı (yukarıda).
+- Sunucular VPCS: HTTP, DNS, FTP, posta servislerinin kendisi sınanmadı, yalnız port bazlı erişim kuralları.
+- Gerçek projede her arıza senaryosu birer kez ölçüldü; süreler koşudan koşuya birkaç saniye oynar.
+- QEMU lab'da uçlar VPCS değil, benzetimdi; gerçek VPCS davranışı üçüncü turda gerçek projede sınandı.
 - Son izleme tekrar koşusu, bilgisayar başka bir işle yüklüyken konsol zaman aşımına düştü; izleme sonuçları bir önceki
   temiz turdan (13/13, alarm, olay, alarmın kalkması) alınmıştır.
