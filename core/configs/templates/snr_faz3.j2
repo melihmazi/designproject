@@ -1,0 +1,35 @@
+! --- 3-A: WAN underlay ---
+interface {{ wan_if }}
+ description TO-ISS-RTR-Gi0/0
+ ip address {{ net.wan.snr_public }} 255.255.255.252
+ ip nat outside
+ no shutdown
+ip route 0.0.0.0 0.0.0.0 {{ net.wan.iss_to_snr }}
+! --- 3-B: GRE tuneli + Area 300 ---
+{# Alan tanimi tunelden ONCE: tunel yapilandirilirken kisa sureli dusuyor; Area 300'un tek arayuzu o oldugu icin
+   IOS alani silmeye baslayip ardindan gelen stub komutunu "Area 300 is being deleted, please try later" diye
+   reddediyordu (9 cihazli canli testte goruldu). Onceden tanimli alan silinmez. #}
+router ospf 1
+ area 300 stub no-summary
+interface Tunnel0
+ description GRE-TO-FAB-RTR
+ ip address {{ tunnel_ip }}
+ tunnel source {{ wan_if }}
+ tunnel destination {{ net.wan.fab_public }}
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ ip ospf network point-to-point
+ ip ospf 1 area 300
+ ip nat inside
+router ospf 1
+ no passive-interface Tunnel0
+ default-information originate
+! --- 3-C: NAT/PAT ---
+ip access-list standard NAT-INSIDE
+ permit 172.16.0.0 0.0.255.255
+ permit {{ net.fab_lan.prefix }}.0 0.0.0.255
+{% for l in core_links %}
+interface {{ l.name }}
+ ip nat inside
+{% endfor %}
+ip nat inside source list NAT-INSIDE interface {{ wan_if }} overload

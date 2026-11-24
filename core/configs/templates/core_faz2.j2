@@ -1,0 +1,32 @@
+{# Port-channel aciklamasi burada TEKRAR yazilir: komsu baglanip demet kurulunca IOSvL2 routed Port-channel'in
+   description'ini siliyor (9 cihazli canli testte sapma raporu yakaladi). #}
+ip routing
+interface Loopback0
+ ip address {{ router_id }} 255.255.255.255
+ ip ospf 1 area 0
+{% for po in port_channels %}
+interface Port-channel{{ po.id }}
+ description {{ po.description }}
+ ip address {{ po.ip }}
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+{% endfor %}
+{% for p in routed_ports %}
+interface {{ p.name }}
+ description {{ p.description }}
+ no switchport
+ ip address {{ p.ip }}
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ no shutdown
+{% endfor %}
+router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ passive-interface default
+{% for po in port_channels %}
+ no passive-interface Port-channel{{ po.id }}
+{% endfor %}
+{% for p in routed_ports %}
+ no passive-interface {{ p.name }}
+{% endfor %}

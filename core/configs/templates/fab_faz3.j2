@@ -1,0 +1,45 @@
+{% set lan = net.fab_lan.prefix %}
+! --- 3-A: WAN underlay + rekursif yonlendirme korumasi ---
+interface {{ wan_if }}
+ description TO-ISS-RTR-Gi0/1
+ ip address {{ net.wan.fab_public }} 255.255.255.252
+ no shutdown
+ip route 198.51.100.0 255.255.255.252 {{ net.wan.iss_to_fab }}
+! --- 3-B: Tesis LAN, GRE, Area 300 (alan tanimi arayuzlerden once, bkz. snr_faz3.j2) ---
+router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ area 300 stub
+ passive-interface default
+interface Loopback0
+ ip address {{ router_id }} 255.255.255.255
+ ip ospf 1 area 300
+interface {{ lan_if }}
+ description FAB-LAN-VLAN{{ net.fab_lan.vlan }}
+ ip address {{ lan }}.1 255.255.255.0
+ ip ospf 1 area 300
+ ip helper-address {{ net.dhcp_server_ip }}
+ no shutdown
+interface Tunnel0
+ description GRE-TO-SNR-RTR
+ ip address {{ tunnel_ip }}
+ tunnel source {{ wan_if }}
+ tunnel destination {{ net.wan.snr_public }}
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ ip ospf network point-to-point
+ ip ospf 1 area 300
+router ospf 1
+ no passive-interface Tunnel0
+! --- 3-F: ACL-FAB-IN (Bolum 7.1: FAB -> yalniz servisler + internet) ---
+ip access-list extended ACL-FAB-IN
+ permit udp any eq bootpc any eq bootps
+ permit tcp {{ lan }}.0 0.0.0.255 any established
+ permit icmp {{ lan }}.0 0.0.0.255 any echo-reply
+{% for t in net.restricted_targets %}
+ deny   ip {{ lan }}.0 0.0.0.255 172.16.{{ t }}.0 0.0.0.255
+{% endfor %}
+ deny   ip {{ lan }}.0 0.0.0.255 172.20.0.0 0.0.255.255
+ permit ip {{ lan }}.0 0.0.0.255 any
+interface {{ lan_if }}
+ ip access-group ACL-FAB-IN in

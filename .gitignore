@@ -1,0 +1,9 @@
+.env
+.venv/
+backups/
+__pycache__/
+*.pyc
+extensions/security-hardening/rendered/
+extensions/config-history/repo/
+reports/
+.pytest_cache/

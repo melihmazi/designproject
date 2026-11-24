@@ -1,0 +1,22 @@
+vtp mode transparent
+spanning-tree mode rapid-pvst
+{% for v in vlans %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{% endfor %}
+interface range GigabitEthernet0/0 - 1
+ description UPLINK-DAG
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk native vlan {{ net.native_vlan }}
+ switchport trunk allowed vlan {{ trunk_allowed }}
+ no shutdown
+{% for p in access_ports %}
+interface range {{ p.range }}
+ description UC-CIHAZ
+ switchport mode access
+ switchport access vlan {{ p.vlan }}
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+{% endfor %}

@@ -1,0 +1,5 @@
+interface Vlan{{ net.native_vlan }}
+ description YONETIM
+ ip address {{ mgmt_ip }} 255.255.255.0
+ no shutdown
+ip default-gateway 172.16.90.1

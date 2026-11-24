@@ -1,0 +1,13 @@
+vtp mode transparent
+spanning-tree mode rapid-pvst
+vlan {{ net.fab_lan.vlan }}
+ name {{ net.fab_lan.name }}
+interface range {{ access_range }}
+ switchport mode access
+ switchport access vlan {{ net.fab_lan.vlan }}
+ spanning-tree portfast
+ no shutdown
+interface Vlan{{ net.fab_lan.vlan }}
+ ip address {{ mgmt_ip }} 255.255.255.0
+ no shutdown
+ip default-gateway {{ net.fab_lan.prefix }}.1

@@ -1,0 +1,31 @@
+ip routing
+interface Loopback0
+ ip address {{ router_id }} 255.255.255.255
+ ip ospf 1 area 0
+interface Port-channel1
+ description {{ po1.description }}
+ ip address {{ po1.ip }}
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+interface Vlan254
+ description DAG1-DAG2-TRANSIT
+ ip address {{ vlan254_ip }}
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ no shutdown
+{% for s in net.svis %}
+interface Vlan{{ s.vlan }}
+ description {{ s.name }}
+ ip address {{ s.prefix }}.{{ svi_host }} 255.255.255.0
+ standby {{ s.vlan }} ip {{ s.prefix }}.1
+ standby {{ s.vlan }} priority {{ 110 if s.active == name else 90 }}
+ standby {{ s.vlan }} preempt
+ ip ospf 1 area 100
+ no shutdown
+{% endfor %}
+router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ passive-interface default
+ no passive-interface Port-channel1
+ no passive-interface Vlan254
