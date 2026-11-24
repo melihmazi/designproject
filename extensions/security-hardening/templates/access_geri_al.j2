@@ -1,0 +1,17 @@
+{% for p in unused_ports %}
+interface {{ p }}
+ no description
+ no shutdown
+{% endfor %}
+{% for p in access_ports %}
+interface range {{ p.range }}
+ no switchport port-security
+ no switchport port-security mac-address sticky
+ no switchport port-security violation restrict
+ no switchport port-security maximum 2
+ no ip dhcp snooping limit rate
+{% endfor %}
+interface range GigabitEthernet0/0 - 1
+ no ip dhcp snooping trust
+no ip dhcp snooping vlan {{ user_vlans }}
+no ip dhcp snooping

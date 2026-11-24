@@ -1,0 +1,21 @@
+! --- DHCP Snooping: uplinkler guvenilir, Option 82 kapali (Faz 3-D uyarisi) ---
+ip dhcp snooping
+ip dhcp snooping vlan {{ user_vlans }}
+no ip dhcp snooping information option
+interface range GigabitEthernet0/0 - 1
+ ip dhcp snooping trust
+! --- Uc portlar: Port Security + DHCP hiz siniri ---
+{% for p in access_ports %}
+interface range {{ p.range }}
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security mac-address sticky
+ switchport port-security
+ ip dhcp snooping limit rate 15
+{% endfor %}
+! --- Kullanilmayan portlar kapali ---
+{% for p in unused_ports %}
+interface {{ p }}
+ description KULLANILMIYOR
+ shutdown
+{% endfor %}
