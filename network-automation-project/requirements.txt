@@ -1,0 +1,5 @@
+netmiko>=4.3
+pyyaml>=6.0
+jinja2>=3.1
+scapy>=2.5    # Faz 6-B pcap analizi
+pytest>=8.0   # extensions/tests

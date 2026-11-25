@@ -1,0 +1,30 @@
+ipv6 unicast-routing
+{# Alan tanimi tunel arayuzunden ONCE (IPv4'te gorulen "Area 300 is being deleted" hatasinin ayni onlemi) #}
+ipv6 router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ area 300 stub no-summary
+ passive-interface default
+{% for i in transit %}
+ no passive-interface {{ i }}
+{% endfor %}
+ no passive-interface Tunnel0
+ default-information originate
+interface Loopback0
+ ipv6 address {{ v6.loopbacks }}::{{ rid }}/128
+ ipv6 ospf 1 area 0
+{% for i in transit %}
+interface {{ i }}
+ ipv6 enable
+ ipv6 ospf network point-to-point
+ ipv6 ospf 1 area 0
+{% endfor %}
+interface {{ wan_if }}
+ ipv6 address {{ v6.wan }}::1/64
+{# GRE (IPv4 tasiyici) IPv6 yukunu de tasir: tunelde yalniz link-local yeterli #}
+interface Tunnel0
+ ipv6 enable
+ ipv6 mtu 1400
+ ipv6 ospf network point-to-point
+ ipv6 ospf 1 area 300
+ipv6 route ::/0 {{ v6.wan }}::2

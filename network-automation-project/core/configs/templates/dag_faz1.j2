@@ -1,0 +1,42 @@
+vtp mode transparent
+spanning-tree mode rapid-pvst
+{% for v in net.vlans %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{% endfor %}
+spanning-tree vlan {{ stp_root_vlans }} priority 4096
+spanning-tree vlan {{ stp_sec_vlans }} priority 8192
+! --- Po1: Core yonu, routed LACP demeti ---
+interface Port-channel1
+ no switchport
+ description {{ po1.description }}
+interface range {{ po1.members }}
+ no switchport
+ description {{ po1.member_description }}
+ channel-group 1 mode active
+ no shutdown
+! --- Po2: DAG-DAG L2 trunk LACP demeti (D3) ---
+interface Port-channel2
+ description {{ po2.description }}
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk native vlan {{ net.native_vlan }}
+ switchport trunk allowed vlan {{ net.dag_trunk_vlans }}
+interface range {{ po2.members }}
+ description {{ po2.member_description }}
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk native vlan {{ net.native_vlan }}
+ switchport trunk allowed vlan {{ net.dag_trunk_vlans }}
+ channel-group 2 mode active
+ no shutdown
+! --- Erisim uplinkleri ---
+{% for u in uplinks %}
+interface {{ u.port }}
+ description {{ u.description }}
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk native vlan {{ net.native_vlan }}
+ switchport trunk allowed vlan {{ u.vlans }}
+ no shutdown
+{% endfor %}

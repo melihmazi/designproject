@@ -1,0 +1,16 @@
+{% for p in unused_ports %}
+interface {{ p }}
+ no description
+ no shutdown
+{% endfor %}
+interface GigabitEthernet0/1
+ no switchport port-security
+ no switchport port-security mac-address sticky
+ no switchport port-security violation restrict
+ no switchport port-security maximum 2
+ no ip dhcp snooping limit rate
+interface GigabitEthernet0/0
+ no ip dhcp snooping trust
+exit
+no ip dhcp snooping vlan {{ net.fab_lan.vlan }}
+no ip dhcp snooping

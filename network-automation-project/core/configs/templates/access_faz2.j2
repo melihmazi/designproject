@@ -1,0 +1,7 @@
+interface Vlan{{ net.native_vlan }}
+ ip address {{ mgmt_ip }} 255.255.255.0
+ no shutdown
+ip default-gateway 172.16.90.1
+{# IOSvL2'de ip routing varsayilan ACIK: ip default-gateway yok sayilir, baska VLAN'dan yonetim adresine
+   ulasilamaz (13 cihazli canli testte A6 kaldi). Statik varsayilan rota iki durumda da calisir. #}
+ip route 0.0.0.0 0.0.0.0 172.16.90.1

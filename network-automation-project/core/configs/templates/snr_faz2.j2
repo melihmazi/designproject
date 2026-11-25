@@ -1,0 +1,18 @@
+interface Loopback0
+ ip address {{ router_id }} 255.255.255.255
+ ip ospf 1 area 0
+{% for l in core_links %}
+interface {{ l.name }}
+ description {{ l.description }}
+ ip address {{ l.ip }}
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ no shutdown
+{% endfor %}
+router ospf 1
+ router-id {{ router_id }}
+ auto-cost reference-bandwidth 10000
+ passive-interface default
+{% for l in core_links %}
+ no passive-interface {{ l.name }}
+{% endfor %}

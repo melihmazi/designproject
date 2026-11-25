@@ -1,0 +1,15 @@
+{# Sira onemli: once Port-channel + no switchport, sonra uye portlar.
+   Aciklama "no switchport"tan SONRA gelir: IOS L2->L3 gecisinde description'i siler (canli testte goruldu).
+   "no ip address" BILEREK yok: Faz 2'den sonra Faz 1 tekrar basilirsa
+   IP adreslerini silmesin (idempotentlik). #}
+vtp mode transparent
+{% for po in port_channels %}
+interface Port-channel{{ po.id }}
+ no switchport
+ description {{ po.description }}
+interface range {{ po.members }}
+ no switchport
+ description {{ po.member_description }}
+ channel-group {{ po.id }} mode active
+ no shutdown
+{% endfor %}

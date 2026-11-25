@@ -1,0 +1,16 @@
+ip dhcp snooping
+ip dhcp snooping vlan {{ net.fab_lan.vlan }}
+no ip dhcp snooping information option
+interface GigabitEthernet0/0
+ ip dhcp snooping trust
+interface GigabitEthernet0/1
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security mac-address sticky
+ switchport port-security
+ ip dhcp snooping limit rate 15
+{% for p in unused_ports %}
+interface {{ p }}
+ description KULLANILMIYOR
+ shutdown
+{% endfor %}

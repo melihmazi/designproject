@@ -1,0 +1,11 @@
+interface GigabitEthernet0/0
+ description TO-SNR-RTR-Gi0/2
+ ip address {{ net.wan.iss_to_snr }} 255.255.255.252
+ no shutdown
+interface GigabitEthernet0/1
+ description TO-FAB-RTR-Gi0/0
+ ip address {{ net.wan.iss_to_fab }} 255.255.255.252
+ no shutdown
+interface Loopback0
+ description SIMULE-INTERNET-HEDEFI
+ ip address {{ net.wan.internet_lo }} 255.255.255.255

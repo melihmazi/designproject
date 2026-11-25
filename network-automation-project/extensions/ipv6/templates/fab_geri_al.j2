@@ -1,0 +1,16 @@
+{% set lan = v6.site ~ ":" ~ net.fab_lan.vlan %}
+interface Tunnel0
+ no ipv6 ospf 1 area 300
+ no ipv6 ospf network point-to-point
+ no ipv6 mtu 1400
+ no ipv6 enable
+interface {{ lan_if }}
+ no ipv6 traffic-filter V6-FAB-IN in
+ no ipv6 ospf 1 area 300
+ no ipv6 address {{ lan }}::1/64
+no ipv6 access-list V6-FAB-IN
+interface Loopback0
+ no ipv6 ospf 1 area 300
+ no ipv6 address {{ v6.loopbacks }}::{{ rid }}/128
+no ipv6 router ospf 1
+no ipv6 unicast-routing

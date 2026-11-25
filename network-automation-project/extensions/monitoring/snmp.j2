@@ -1,0 +1,7 @@
+! SNMP v2c, salt okunur; yalniz izleme istasyonundan (ACL-SNMP)
+ip access-list standard ACL-SNMP
+ permit {{ station }}
+snmp-server community {{ community }} RO ACL-SNMP
+snmp-server location Anadolu Makina - {{ "Tesis" if name.startswith("FAB") else ("ISS" if name.startswith("ISS") else "Merkez") }}
+snmp-server contact bilgi-islem@{{ net.domain }}
+snmp-server ifindex persist

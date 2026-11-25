@@ -1,0 +1,208 @@
+# Anadolu Makina A.S. - 13 IOS cihazi. Tek dogru kaynak: docs/PROJE.md (yol haritasi) Bolum 3, 5, 6, 7.
+# Konsol portlari BURADA DEGIL: core/inventory/consoles.yaml (gen_inventory.py uretir).
+
+defaults:
+  device_type: cisco_ios_telnet     # GNS3 konsolu (telnet)
+  console_host: 192.168.130.128     # GNS3 VM
+  console_port: null                # consoles.yaml'dan gelir
+
+# ---------------- Ag geneli degiskenler (sablonlarda "net" adiyla) ----------------
+network:
+  domain: anadolumakina.local
+  dns_server: 172.16.50.11
+  dhcp_server_ip: 172.20.20.3       # MRK-DAG1 Loopback0 (Docker yerine IOS DHCP - devir notu)
+  dhcp_first: 100                   # havuz araligi .100 - .200
+  dhcp_last: 200
+  dag_trunk_vlans: "10,20,30,40,50,60,90,254"
+  native_vlan: 90
+  vlans:
+    - {id: 10,  name: SAT}
+    - {id: 20,  name: PER}
+    - {id: 30,  name: BIS}
+    - {id: 40,  name: YNT}
+    - {id: 50,  name: SRV}
+    - {id: 60,  name: MSF}
+    - {id: 90,  name: YNTM}
+    - {id: 254, name: DAG-ARA}
+  # Area 100 SVI'lari. active = HSRP active (pri 110) ve STP koku.
+  svis:
+    - {vlan: 10, name: SAT,  prefix: "172.16.10", active: MRK-DAG1, dhcp: true,  acl_in: ACL-V10-IN}
+    - {vlan: 20, name: PER,  prefix: "172.16.20", active: MRK-DAG2, dhcp: true,  acl_in: ACL-V20-IN}
+    - {vlan: 30, name: BIS,  prefix: "172.16.30", active: MRK-DAG1, dhcp: true}
+    - {vlan: 40, name: YNT,  prefix: "172.16.40", active: MRK-DAG2, dhcp: true}
+    - {vlan: 50, name: SRV,  prefix: "172.16.50", active: MRK-DAG1, dhcp: false, acl_out: ACL-SRV-OUT}
+    - {vlan: 60, name: MSF,  prefix: "172.16.60", active: MRK-DAG2, dhcp: true,  acl_in: ACL-V60-IN}
+    - {vlan: 90, name: YNTM, prefix: "172.16.90", active: MRK-DAG1, dhcp: false, acl_out: ACL-V90-OUT}
+  # Bolum 7.1: SAT ve PER birbirine ve asagidaki aglara erisemez
+  restricted_vlans: [10, 20]
+  restricted_targets: [10, 20, 30, 40, 60, 90]
+  fab_lan: {vlan: 110, name: FAB-LAN, prefix: "172.18.10"}
+  wan:
+    snr_public: 198.51.100.1
+    iss_to_snr: 198.51.100.2
+    iss_to_fab: 198.51.100.5
+    fab_public: 198.51.100.6
+    internet_lo: 203.0.113.1
+
+devices:
+  # ---------- Core (L3 switch) ----------
+  - name: MRK-CORE1
+    role: core
+    router_id: 172.20.20.1
+    port_channels:
+      - {id: 1, description: PO1-TO-CORE2, member_description: TO-CORE-PEER, members: "GigabitEthernet0/0 - 1", ip: "172.20.254.1 255.255.255.252"}
+      - {id: 2, description: PO2-TO-DAG1,  member_description: TO-DAG, members: "GigabitEthernet0/2 - 3", ip: "172.20.254.5 255.255.255.252"}
+    routed_ports:
+      - {name: GigabitEthernet1/0, description: TO-SNR-RTR-Gi0/0, ip: "172.20.254.17 255.255.255.252"}
+  - name: MRK-CORE2
+    role: core
+    router_id: 172.20.20.2
+    port_channels:
+      - {id: 1, description: PO1-TO-CORE1, member_description: TO-CORE-PEER, members: "GigabitEthernet0/0 - 1", ip: "172.20.254.2 255.255.255.252"}
+      - {id: 2, description: PO2-TO-DAG2,  member_description: TO-DAG, members: "GigabitEthernet0/2 - 3", ip: "172.20.254.9 255.255.255.252"}
+    routed_ports:
+      - {name: GigabitEthernet1/0, description: TO-SNR-RTR-Gi0/1, ip: "172.20.254.21 255.255.255.252"}
+
+  # ---------- Dagitim (L3 switch) ----------
+  - name: MRK-DAG1
+    role: dag
+    router_id: 172.20.20.3
+    svi_host: 2                      # SVI adresleri x.x.x.2
+    stp_root_vlans: "10,30,50,90,254"
+    stp_sec_vlans: "20,40,60"
+    transit_description: DAG1-DAG2-TRANSIT
+    po1: {description: PO1-TO-CORE1, member_description: TO-CORE1, members: "GigabitEthernet0/0 - 1", ip: "172.20.254.6 255.255.255.252"}
+    po2: {description: PO2-TO-DAG2-L2TRUNK, members: "GigabitEthernet0/2 - 3", member_description: TO-DAG2}
+    vlan254_ip: "172.20.254.13 255.255.255.252"
+    dhcp_server: true
+    uplinks:
+      - {port: GigabitEthernet1/0, description: TO-ERS-SAT-P, vlans: "10,90"}
+      - {port: GigabitEthernet1/1, description: TO-ERS-BIS-P, vlans: "30,60,90"}
+      - {port: GigabitEthernet1/2, description: TO-ERS-SRV-P, vlans: "50,90"}
+      - {port: GigabitEthernet1/3, description: TO-ERS-PER-Y, vlans: "20,90"}
+      - {port: GigabitEthernet2/0, description: TO-ERS-YNT-Y, vlans: "40,90"}
+  - name: MRK-DAG2
+    role: dag
+    router_id: 172.20.20.4
+    svi_host: 3
+    stp_root_vlans: "20,40,60"
+    stp_sec_vlans: "10,30,50,90,254"
+    transit_description: DAG2-DAG1-TRANSIT
+    po1: {description: PO1-TO-CORE2, member_description: TO-CORE2, members: "GigabitEthernet0/0 - 1", ip: "172.20.254.10 255.255.255.252"}
+    po2: {description: PO2-TO-DAG1-L2TRUNK, members: "GigabitEthernet0/2 - 3", member_description: TO-DAG1}
+    vlan254_ip: "172.20.254.14 255.255.255.252"
+    dhcp_server: false
+    uplinks:
+      - {port: GigabitEthernet1/0, description: TO-ERS-PER-P, vlans: "20,90"}
+      - {port: GigabitEthernet1/1, description: TO-ERS-YNT-P, vlans: "40,90"}
+      - {port: GigabitEthernet1/2, description: TO-ERS-SAT-Y, vlans: "10,90"}
+      - {port: GigabitEthernet1/3, description: TO-ERS-BIS-Y, vlans: "30,60,90"}
+      - {port: GigabitEthernet2/0, description: TO-ERS-SRV-Y, vlans: "50,90"}
+
+  # ---------- Erisim (L2 switch) ----------
+  - name: MRK-ERS-SAT
+    role: access
+    mgmt_ip: 172.16.90.11
+    vlans: [{id: 10, name: SAT}, {id: 90, name: YNTM}]
+    trunk_allowed: "10,90"
+    access_ports: [{range: "GigabitEthernet0/2 - 3", vlan: 10, description: UC-CIHAZ-SAT}]
+  - name: MRK-ERS-PER
+    role: access
+    mgmt_ip: 172.16.90.12
+    vlans: [{id: 20, name: PER}, {id: 90, name: YNTM}]
+    trunk_allowed: "20,90"
+    access_ports: [{range: "GigabitEthernet0/2 - 3", vlan: 20, description: UC-CIHAZ-PER}]
+  - name: MRK-ERS-BIS
+    role: access
+    mgmt_ip: 172.16.90.13
+    vlans: [{id: 30, name: BIS}, {id: 60, name: MSF}, {id: 90, name: YNTM}]
+    trunk_allowed: "30,60,90"
+    access_ports:
+      - {range: "GigabitEthernet0/2 - 3", vlan: 30, description: UC-CIHAZ-BIS}
+      - {range: "GigabitEthernet1/0",     vlan: 30, description: UC-CIHAZ-BIS}    # BIS-YAZICI1
+      - {range: "GigabitEthernet1/1",     vlan: 90, description: KAP-1-AP-MGMT}
+      - {range: "GigabitEthernet1/2",     vlan: 60, description: MSF-DZ1}
+  - name: MRK-ERS-YNT
+    role: access
+    mgmt_ip: 172.16.90.14
+    vlans: [{id: 40, name: YNT}, {id: 90, name: YNTM}]
+    trunk_allowed: "40,90"
+    access_ports: [{range: "GigabitEthernet0/2 - 3", vlan: 40, description: UC-CIHAZ-YNT}]
+  - name: MRK-ERS-SRV
+    role: access
+    mgmt_ip: 172.16.90.15
+    vlans: [{id: 50, name: SRV}, {id: 90, name: YNTM}]
+    trunk_allowed: "50,90"
+    access_ports:
+      - {range: "GigabitEthernet0/2 - 3", vlan: 50, description: SUNUCULAR}
+      - {range: "GigabitEthernet1/0 - 2", vlan: 50, description: SUNUCULAR}
+
+  # ---------- Sube switch ----------
+  - name: FAB-ERS-1
+    role: branch_sw
+    mgmt_ip: 172.18.10.2
+    access_range: "GigabitEthernet0/0 - 1"
+
+  # ---------- Router'lar ----------
+  - name: SNR-RTR
+    role: snr
+    router_id: 172.20.20.5
+    core_links:
+      - {name: GigabitEthernet0/0, description: TO-MRK-CORE1-Gi1/0, ip: "172.20.254.18 255.255.255.252"}
+      - {name: GigabitEthernet0/1, description: TO-MRK-CORE2-Gi1/0, ip: "172.20.254.22 255.255.255.252"}
+    wan_if: GigabitEthernet0/2
+    tunnel_ip: "172.20.200.1 255.255.255.252"
+  - name: ISS-RTR
+    role: iss
+  - name: FAB-RTR
+    role: fab
+    router_id: 172.20.20.6
+    wan_if: GigabitEthernet0/0
+    lan_if: GigabitEthernet0/1
+    tunnel_ip: "172.20.200.2 255.255.255.252"
+
+# ---------------- Beklenen durum (validate.py - Faz 5) ----------------
+# IOS-IOS kablolari: yol haritasi Bolum 3.3, L01-L13 ve L15-L24.  [A, portA, B, portB]
+links:
+  - [MRK-CORE1, Gi0/0, MRK-CORE2, Gi0/0]
+  - [MRK-CORE1, Gi0/1, MRK-CORE2, Gi0/1]
+  - [MRK-CORE1, Gi0/2, MRK-DAG1, Gi0/0]
+  - [MRK-CORE1, Gi0/3, MRK-DAG1, Gi0/1]
+  - [MRK-CORE2, Gi0/2, MRK-DAG2, Gi0/0]
+  - [MRK-CORE2, Gi0/3, MRK-DAG2, Gi0/1]
+  - [MRK-DAG1, Gi0/2, MRK-DAG2, Gi0/2]
+  - [MRK-DAG1, Gi0/3, MRK-DAG2, Gi0/3]
+  - [MRK-CORE1, Gi1/0, SNR-RTR, Gi0/0]
+  - [MRK-CORE2, Gi1/0, SNR-RTR, Gi0/1]
+  - [SNR-RTR, Gi0/2, ISS-RTR, Gi0/0]
+  - [ISS-RTR, Gi0/1, FAB-RTR, Gi0/0]
+  - [FAB-RTR, Gi0/1, FAB-ERS-1, Gi0/0]
+  - [MRK-DAG1, Gi1/0, MRK-ERS-SAT, Gi0/0]
+  - [MRK-DAG2, Gi1/2, MRK-ERS-SAT, Gi0/1]
+  - [MRK-DAG1, Gi1/1, MRK-ERS-BIS, Gi0/0]
+  - [MRK-DAG2, Gi1/3, MRK-ERS-BIS, Gi0/1]
+  - [MRK-DAG1, Gi1/2, MRK-ERS-SRV, Gi0/0]
+  - [MRK-DAG2, Gi2/0, MRK-ERS-SRV, Gi0/1]
+  - [MRK-DAG2, Gi1/0, MRK-ERS-PER, Gi0/0]
+  - [MRK-DAG1, Gi1/3, MRK-ERS-PER, Gi0/1]
+  - [MRK-DAG2, Gi1/1, MRK-ERS-YNT, Gi0/0]
+  - [MRK-DAG1, Gi2/0, MRK-ERS-YNT, Gi0/1]
+
+expected:
+  # Port-channel: bayrak RU = routed + kullanimda, SU = L2 + kullanimda
+  etherchannel:
+    MRK-CORE1: [{po: 1, flags: RU, members: [Gi0/0, Gi0/1]}, {po: 2, flags: RU, members: [Gi0/2, Gi0/3]}]
+    MRK-CORE2: [{po: 1, flags: RU, members: [Gi0/0, Gi0/1]}, {po: 2, flags: RU, members: [Gi0/2, Gi0/3]}]
+    MRK-DAG1:  [{po: 1, flags: RU, members: [Gi0/0, Gi0/1]}, {po: 2, flags: SU, members: [Gi0/2, Gi0/3]}]
+    MRK-DAG2:  [{po: 1, flags: RU, members: [Gi0/0, Gi0/1]}, {po: 2, flags: SU, members: [Gi0/2, Gi0/3]}]
+  # OSPF komsuluklari (Bolum 6): toplam 14 giris
+  ospf:
+    MRK-CORE1: [{peer: MRK-CORE2, intf: Po1}, {peer: MRK-DAG1, intf: Po2}, {peer: SNR-RTR, intf: Gi1/0}]
+    MRK-CORE2: [{peer: MRK-CORE1, intf: Po1}, {peer: MRK-DAG2, intf: Po2}, {peer: SNR-RTR, intf: Gi1/0}]
+    MRK-DAG1:  [{peer: MRK-CORE1, intf: Po1}, {peer: MRK-DAG2, intf: Vl254}]
+    MRK-DAG2:  [{peer: MRK-CORE2, intf: Po1}, {peer: MRK-DAG1, intf: Vl254}]
+    SNR-RTR:   [{peer: MRK-CORE1, intf: Gi0/0}, {peer: MRK-CORE2, intf: Gi0/1}, {peer: FAB-RTR, intf: Tu0}]
+    FAB-RTR:   [{peer: SNR-RTR, intf: Tu0}]
+  tunnel:
+    SNR-RTR: {intf: Tunnel0, peer: FAB-RTR}
+    FAB-RTR: {intf: Tunnel0, peer: SNR-RTR}

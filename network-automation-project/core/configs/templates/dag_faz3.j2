@@ -1,0 +1,70 @@
+{# Devir notu: Docker (snc-base) YOK. DHCP havuzlari dogrudan MRK-DAG1 uzerinde (dhcp_server: true).
+   DAG1 her kullanici VLAN'inda SVI sahibi oldugu icin broadcast istekleri dogrudan yanitlar;
+   bu yuzden SVI'larda ip helper-address gerekmez. Tesis icin FAB-RTR -> 172.20.20.3 relay eder. #}
+{% if dhcp_server | default(false) %}
+! --- 3-D/E: IOS DHCP sunucusu ---
+{% for s in net.svis if s.dhcp %}
+ip dhcp excluded-address {{ s.prefix }}.1 {{ s.prefix }}.{{ net.dhcp_first - 1 }}
+ip dhcp excluded-address {{ s.prefix }}.{{ net.dhcp_last + 1 }} {{ s.prefix }}.254
+{% endfor %}
+ip dhcp excluded-address {{ net.fab_lan.prefix }}.1 {{ net.fab_lan.prefix }}.{{ net.dhcp_first - 1 }}
+ip dhcp excluded-address {{ net.fab_lan.prefix }}.{{ net.dhcp_last + 1 }} {{ net.fab_lan.prefix }}.254
+{% for s in net.svis if s.dhcp %}
+ip dhcp pool {{ s.name }}
+ network {{ s.prefix }}.0 255.255.255.0
+ default-router {{ s.prefix }}.1
+ dns-server {{ net.dns_server }}
+ domain-name {{ net.domain }}
+{% endfor %}
+ip dhcp pool FAB
+ network {{ net.fab_lan.prefix }}.0 255.255.255.0
+ default-router {{ net.fab_lan.prefix }}.1
+ dns-server {{ net.dns_server }}
+ domain-name {{ net.domain }}
+{% endif %}
+! --- 3-F: ACL'ler (Bolum 7.2) - DAG1 ve DAG2'de ayni ---
+{% for v in net.restricted_vlans %}
+ip access-list extended ACL-V{{ v }}-IN
+ permit udp any eq bootpc any eq bootps
+ permit tcp 172.16.{{ v }}.0 0.0.0.255 any established
+ permit icmp 172.16.{{ v }}.0 0.0.0.255 any echo-reply
+{% for t in net.restricted_targets if t != v %}
+ deny   ip 172.16.{{ v }}.0 0.0.0.255 172.16.{{ t }}.0 0.0.0.255
+{% endfor %}
+ deny   ip 172.16.{{ v }}.0 0.0.0.255 172.20.0.0 0.0.255.255
+ permit ip 172.16.{{ v }}.0 0.0.0.255 any
+{% endfor %}
+ip access-list extended ACL-V60-IN
+ permit udp any eq bootpc any eq bootps
+ permit udp 172.16.60.0 0.0.0.255 host {{ net.dns_server }} eq 53
+ permit tcp 172.16.60.0 0.0.0.255 host {{ net.dns_server }} eq 53
+ deny   ip 172.16.60.0 0.0.0.255 172.16.0.0 0.15.255.255
+ deny   ip 172.16.60.0 0.0.0.255 172.18.0.0 0.0.255.255
+ permit ip 172.16.60.0 0.0.0.255 any
+ip access-list extended ACL-SRV-OUT
+ permit ip 172.16.30.0 0.0.0.255 172.16.50.0 0.0.0.255
+ permit udp any host 172.16.50.10 eq 67
+ permit udp any host 172.16.50.11 eq 53
+ permit tcp any host 172.16.50.11 eq 53
+ permit tcp any host 172.16.50.12 eq 80
+ permit tcp any host 172.16.50.12 eq 443
+ permit tcp any host 172.16.50.13 eq 25
+ permit tcp any host 172.16.50.13 eq 110
+ permit tcp any host 172.16.50.13 eq 143
+ permit tcp any host 172.16.50.14 eq 21
+ permit icmp any 172.16.50.0 0.0.0.255 echo
+ deny   ip any any log
+ip access-list extended ACL-V90-OUT
+ permit ip 172.16.30.0 0.0.0.255 172.16.90.0 0.0.0.255
+ permit ip 172.16.40.0 0.0.0.255 172.16.90.0 0.0.0.255
+ permit ip 172.20.0.0 0.0.255.255 172.16.90.0 0.0.0.255
+ deny   ip any any
+{% for s in net.svis if s.acl_in is defined or s.acl_out is defined %}
+interface Vlan{{ s.vlan }}
+{% if s.acl_in is defined %}
+ ip access-group {{ s.acl_in }} in
+{% endif %}
+{% if s.acl_out is defined %}
+ ip access-group {{ s.acl_out }} out
+{% endif %}
+{% endfor %}
