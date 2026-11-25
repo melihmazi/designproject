@@ -247,9 +247,21 @@ python ..\lab\gns3_run.py sw extensions\fast-convergence\hizli.py --rollback --o
 
 Canlı gösterim sırası: `docs/sunum-rehberi.md`.
 
+### Arayüzde canlı Wireshark (25 Kasım, öğlen)
+
+Proje GNS3 arayüzünden açıldı, 13 cihaz arayüzden başlatıldı (sağlık 13/13), SNR-RTR `Gi0/2` ↔ ISS-RTR `Gi0/0`
+bağlantısında **Start capture** ile canlı kayıt açıldı, filtre `icmp || gre`. Ekran görüntüsü:
+`docs/captures/gercek/canli-wireshark.jpg`. Görülenler:
+- SAT-PC1'in internete pingi WAN'da 198.51.100.1 kaynak adresiyle (NAT).
+- FAB-PC1'in pingi önce GRE içinde 172.18.10.100 kaynak adresiyle, hemen ardından NAT'lı olarak 198.51.100.1 ile.
+- FAB-PC1'in DHCP Discover ve Offer paketleri GRE içinde (relay).
+
+Arayüz tuzağı: arayüzün QEMU tercihinde "Require hardware acceleration" işaretliydi; bu bilgisayarda hızlandırma
+olmadığı için düğümler "HAXM acceleration support is not installed" hatasıyla başlamıyordu. Tercihler penceresindeki
+değişiklik sunucuya ulaşmadı; `%APPDATA%\GNS3.2\gns3_gui.ini` içinde iki ayar `false` yapıldı.
+
 ## Doğrulanamayanlar
 - Zaman ölçümleri TCG (yazılım emülasyonu) altında alındı; gerçek donanımda ya da KVM'li GNS3 VM'de süreler farklı olur.
-- Canlı Wireshark gösterimi (arayüzde) yapılmadı; kayıtlar başsız alındı, dosyalar `docs/captures/gercek/` altında.
 - Gerçek GNS3 projesinde sınanmayanlar: saldırı testleri (kaçak DHCP, MAC taşması), SNMP izleme ve Ansible. Bunlar
   saldırgan uç, bant dışı yönetim portu ve Linux denetim makinesi ister; QEMU lab'da sınandı (yukarıda).
 - Sunucular VPCS: HTTP, DNS, FTP, posta servislerinin kendisi sınanmadı, yalnız port bazlı erişim kuralları.

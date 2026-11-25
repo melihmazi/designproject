@@ -123,6 +123,7 @@ Söylenecek: 13 cihazın yapılandırması tek envanter dosyasından ve 12 şabl
 | Belirti | Çözüm |
 |---|---|
 | Betik "WinError 10053" veriyor | Düğüm yeni yeniden başlamış. GNS3'te düğüme sağ tıkla, konsolu kapatıp aç ya da 1 dakika bekle |
+| Start'a basınca "HAXM acceleration support is not installed" | GNS3'ü kapat, `%APPDATA%\GNS3.2\gns3_gui.ini` içinde `enable_hardware_acceleration` ve `require_hardware_acceleration` değerlerini `false` yap, yeniden aç (şu an böyle ayarlı) |
 | Sağlık raporu kırmızı, cihazlar yeni açıldı | OSPF ve STP oturana kadar 2–3 dakika bekle, tekrar koş |
 | Port-channel açıklaması sapma raporunda | `python ..\lab\gns3_run.py sw ..\lab\gns3_fix.py` |
 | Zamanlayıcıları eski hâline almak | `python ..\lab\gns3_run.py sw extensions\fast-convergence\hizli.py --rollback --only '@grup'`, sonra aynısı `rtr` ile |
